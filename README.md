@@ -38,6 +38,28 @@ When enabled, the extension intercepts tool calls in pi:
 
 ## Install
 
+### Directly from GitHub
+
+You do not need to clone the repo first.
+
+```bash
+pi install git:github.com/r4vi/pi-auto-mode
+```
+
+You can also pin a ref:
+
+```bash
+pi install git:github.com/r4vi/pi-auto-mode@main
+# or a tag / commit
+pi install git:github.com/r4vi/pi-auto-mode@<tag-or-commit>
+```
+
+Raw GitHub URLs work too:
+
+```bash
+pi install https://github.com/r4vi/pi-auto-mode
+```
+
 ### As a local package
 
 From the directory containing this package:
