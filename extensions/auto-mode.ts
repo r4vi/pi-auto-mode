@@ -1,7 +1,7 @@
 import { complete } from "@mariozechner/pi-ai";
 import type { Model, UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { matchesKey } from "@mariozechner/pi-tui";
+import { Container, SelectList, Text, matchesKey, type SelectItem } from "@mariozechner/pi-tui";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import os from "node:os";
@@ -471,17 +471,56 @@ async function getSelectableModelSpecs(ctx: ExtensionContext): Promise<string[]>
 	return ordered;
 }
 
-async function promptForClassifierModel(ctx: ExtensionContext, current?: string): Promise<string | undefined> {
+async function promptForClassifierModel(
+	ctx: ExtensionContext,
+	current?: string,
+	reservedRows = 0,
+): Promise<string | undefined> {
 	if (!ctx.hasUI) return undefined;
 	const options = await getSelectableModelSpecs(ctx);
 	if (options.length === 0) {
 		ctx.ui.notify("No authenticated models available for auto mode", "warning");
 		return undefined;
 	}
-	const title = current
-		? `Select auto-mode classifier model\n\nCurrent: ${current}\nRecommended cheap default: github-copilot/gpt-5.4-mini`
-		: "Select auto-mode classifier model\n\nRecommended cheap default: github-copilot/gpt-5.4-mini";
-	return await ctx.ui.select(title, options);
+
+	const recommended = "github-copilot/gpt-5.4-mini";
+	const items: SelectItem[] = options.map((value) => ({
+		value,
+		label: value,
+		description: value === current ? "current" : value === recommended ? "recommended" : undefined,
+	}));
+
+	return await ctx.ui.custom<string | undefined>((tui, theme, _keybindings, done) => {
+		const chromeRows = (current ? 4 : 3) + 2;
+		const maxVisible = Math.max(3, Math.min(items.length, tui.terminal.rows - reservedRows - chromeRows));
+		const selectList = new SelectList(items, maxVisible, {
+			selectedPrefix: (text) => theme.fg("accent", text),
+			selectedText: (text) => theme.fg("accent", text),
+			description: (text) => theme.fg("muted", text),
+			scrollInfo: (text) => theme.fg("dim", text),
+			noMatch: (text) => theme.fg("warning", text),
+		});
+		const initialIndex = Math.max(0, items.findIndex((item) => item.value === recommended));
+		selectList.setSelectedIndex(initialIndex);
+		selectList.onSelect = (item) => done(item.value);
+		selectList.onCancel = () => done(undefined);
+
+		const container = new Container();
+		container.addChild(new Text(theme.fg("accent", theme.bold("Auto-mode classifier model")), 0, 0));
+		if (current) container.addChild(new Text(theme.fg("muted", `Current: ${current}`), 0, 0));
+		container.addChild(new Text(theme.fg("dim", `Recommended: ${recommended}`), 0, 0));
+		container.addChild(selectList);
+		container.addChild(new Text(theme.fg("dim", "↑↓ navigate • enter select • esc cancel"), 0, 0));
+
+		return {
+			render: (width: number) => container.render(width),
+			invalidate: () => container.invalidate(),
+			handleInput: (data: string) => {
+				selectList.handleInput(data);
+				tui.requestRender();
+			},
+		};
+	});
 }
 
 async function setClassifierModel(
@@ -820,6 +859,17 @@ export default function autoModeExtension(pi: ExtensionAPI) {
 		pi.appendEntry("auto-mode-state", state);
 	}
 
+	function getRecentDenialsWidgetRows(): number {
+		if (historyDismissed || state.recentDenials.length === 0) return 0;
+		return 1 + Math.min(5, state.recentDenials.length);
+	}
+
+	function getSelectorReservedRows(): number {
+		const footerRows = 1;
+		const breathingRoom = 1;
+		return footerRows + breathingRoom + getRecentDenialsWidgetRows();
+	}
+
 	function recordDenial(denial: DenialRecord): void {
 		historyDismissed = false;
 		pushDenial(state, denial);
@@ -840,7 +890,7 @@ export default function autoModeExtension(pi: ExtensionAPI) {
 
 	async function maybePromptForModelOnEnable(ctx: ExtensionContext): Promise<void> {
 		if (!state.enabled || config.classifierModel || !ctx.hasUI) return;
-		const selected = await promptForClassifierModel(ctx, undefined);
+		const selected = await promptForClassifierModel(ctx, undefined, getSelectorReservedRows());
 		if (!selected) {
 			ctx.ui.notify("Auto mode will use the current session model until you pick one via /auto-mode model", "info");
 			return;
@@ -967,7 +1017,11 @@ export default function autoModeExtension(pi: ExtensionAPI) {
 					}
 					return;
 				}
-				const selected = await promptForClassifierModel(ctx, state.classifierModel ?? config.classifierModel);
+				const selected = await promptForClassifierModel(
+					ctx,
+					state.classifierModel ?? config.classifierModel,
+					getSelectorReservedRows(),
+				);
 				if (!selected) return;
 				const ok = await setClassifierModel(ctx, config, state, selected);
 				if (ok) {
