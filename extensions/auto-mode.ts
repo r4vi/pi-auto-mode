@@ -889,7 +889,7 @@ export default function autoModeExtension(pi: ExtensionAPI) {
 	}
 
 	async function maybePromptForModelOnEnable(ctx: ExtensionContext): Promise<void> {
-		if (!state.enabled || config.classifierModel || !ctx.hasUI) return;
+		if (!state.enabled || config.classifierModel || state.classifierModel || !ctx.hasUI) return;
 		const selected = await promptForClassifierModel(ctx, undefined, getSelectorReservedRows());
 		if (!selected) {
 			ctx.ui.notify("Auto mode will use the current session model until you pick one via /auto-mode model", "info");
