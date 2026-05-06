@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "classifierModel": "github-copilot/gpt-5.4-mini",
+  "failOpen": true,
+  "maxConsecutiveDenials": 3,
+  "maxTotalDenials": 20,
+  "maxTranscriptLines": 60,
+  "reasoningEffort": "high",
+  "allowlistedTools": ["read", "grep", "find", "ls"],
+  "environment": [
+    "**Trusted repo**: the repository pi started in and its configured git remotes",
+    "**Trusted internal domains**: add your own domains here",
+    "**Trusted cloud buckets**: add your own buckets here",
+    "**Key internal services**: add your own hosts here"
+  ],
+  "allowRules": [],
+  "denyRules": []
+}
