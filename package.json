@@ -1,6 +1,6 @@
 {
   "name": "pi-auto-mode",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A pi extension that re-implements Claude Code style auto mode with a two-stage tool-call classifier.",
   "type": "module",
   "license": "MIT",
