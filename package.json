@@ -1,10 +1,26 @@
 {
   "name": "pi-auto-mode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A pi extension that re-implements Claude Code style auto mode with a two-stage tool-call classifier.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r4vi/pi-auto-mode.git"
+  },
+  "homepage": "https://github.com/r4vi/pi-auto-mode#readme",
+  "bugs": {
+    "url": "https://github.com/r4vi/pi-auto-mode/issues"
+  },
   "keywords": ["pi-package"],
+  "files": [
+    "extensions",
+    "README.md",
+    "auto-mode.example.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*"

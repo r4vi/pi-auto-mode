@@ -38,6 +38,14 @@ When enabled, the extension intercepts tool calls in pi:
 
 ## Install
 
+### From npm
+
+Once published, the package can be installed from npm:
+
+```bash
+npm install pi-auto-mode
+```
+
 ### Directly from GitHub
 
 You do not need to clone the repo first.
