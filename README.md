@@ -206,3 +206,36 @@ Current differences:
 ## Development
 
 This package is intentionally dependency-light and relies on pi's extension runtime.
+
+## Publish to npm
+
+This repository includes a GitHub Actions workflow at `.github/workflows/publish.yml` that publishes the package to npm using trusted publishing.
+
+### First publish
+
+Because `pi-auto-mode` does not exist on npm yet, do the first publish once from your machine:
+
+1. Log in to npm from your shell.
+2. Run `npm publish --access public` from the repository root.
+3. Confirm the package exists on npm.
+
+After that first publish, switch the repository to trusted publishing.
+
+### Switch to trusted publishing
+
+After the package exists on npm, switch to npm trusted publishing:
+
+1. In npm package settings, add a trusted publisher for this GitHub repository:
+  - owner: `r4vi`
+  - repository: `pi-auto-mode`
+  - workflow file: `publish.yml`
+2. Keep the package public so the workflow can publish with `--access public`.
+
+Release flow:
+
+1. Bump `version` in `package.json`.
+2. Commit and push the change.
+3. Create a GitHub release whose tag matches the package version, with or without a leading `v`.
+4. The workflow publishes the package to npm and attaches npm provenance automatically.
+
+You can also run the workflow manually from the Actions tab with `workflow_dispatch`.

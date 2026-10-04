@@ -1,7 +1,7 @@
-import { complete } from "@mariozechner/pi-ai";
-import type { Model, UserMessage } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Container, SelectList, Text, matchesKey, type SelectItem } from "@mariozechner/pi-tui";
+import { complete } from "@earendil-works/pi-ai/compat";
+import type { Model, UserMessage } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Container, SelectList, Text, matchesKey, type SelectItem } from "@earendil-works/pi-tui";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import os from "node:os";

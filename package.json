@@ -1,6 +1,6 @@
 {
   "name": "pi-auto-mode",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A pi extension that re-implements Claude Code style auto mode with a two-stage tool-call classifier.",
   "type": "module",
   "license": "MIT",
@@ -22,8 +22,9 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "*",
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
   },
   "pi": {
     "extensions": ["./extensions"]
