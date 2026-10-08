@@ -106,13 +106,7 @@ const DEFAULT_CONFIG: AutoModeConfig = {
 
 const AUTO_MODE_GUIDANCE = `## Auto Mode Active
 
-Auto mode is active. The user chose continuous, autonomous execution.
-
-- Execute immediately and prefer action over planning.
-- Minimize interruptions and make reasonable assumptions.
-- Be thorough: complete implementation, verification, and cleanup.
-- Never post content to public services without explicit approval for that exact endpoint.
-- Do not modify shell profile files, cron, TLS verification settings, or auto-mode's own safety files.`;
+Auto mode is on: your actions will be approved by an automated security classifier.`;
 
 const CLASSIFIER_SYSTEM_PROMPT = `You are a security monitor for an autonomous coding agent.
 
@@ -316,17 +310,42 @@ function buildTranscript(ctx: ExtensionContext, maxLines: number): string {
 	return lines.slice(-maxLines).join("\n");
 }
 
-function normalizeAllowlistedToolEntry(value: unknown): string | undefined {
+type AllowlistEntry = {
+	tool: string;
+	glob?: string;
+	regex?: RegExp;
+};
+
+function globToRegExp(glob: string): RegExp {
+	const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+	return new RegExp(`^${escaped}$`);
+}
+
+function normalizeAllowlistedToolEntry(value: unknown): AllowlistEntry | undefined {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
 	if (!trimmed) return undefined;
 
 	const direct = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
-	if (/^[a-z0-9_-]+$/i.test(direct)) return direct.toLowerCase();
+	if (/^[a-z0-9_-]+$/i.test(direct)) return { tool: direct.toLowerCase() };
 
-	const match = direct.match(/^([A-Za-z0-9_-]+)(?:\(.*\))?$/);
+	const match = direct.match(/^([A-Za-z0-9_-]+)\(([^)]*)\)$/);
 	if (!match?.[1]) return undefined;
-	return match[1].toLowerCase();
+	const glob = match[2]?.trim();
+	if (!glob) return { tool: match[1].toLowerCase() };
+	return { tool: match[1].toLowerCase(), glob, regex: globToRegExp(glob) };
+}
+
+function isAllowlisted(entries: AllowlistEntry[], toolName: string, input: Record<string, unknown>): boolean {
+	return entries.some((entry) => {
+		if (entry.tool !== toolName) return false;
+		if (!entry.regex) return true;
+		if (toolName === "bash") {
+			const command = typeof input.command === "string" ? input.command.trim() : "";
+			return entry.regex.test(command);
+		}
+		return entry.regex.test(safeJson(input, 2000));
+	});
 }
 
 function extractClaudeAllowEntries(input: unknown): string[] {
@@ -375,19 +394,22 @@ function getClaudeGlobalAllowlistedTools(): string[] {
 	return readClaudeAllowlistedTools(GLOBAL_CLAUDE_SETTINGS_FILES);
 }
 
-function getEffectiveAllowlistedTools(cwd: string, config: AutoModeConfig): string[] {
-	const tools = new Set<string>();
+function getEffectiveAllowlistedTools(cwd: string, config: AutoModeConfig): AllowlistEntry[] {
+	const entries = new Map<string, AllowlistEntry>();
+	const addEntry = (value: unknown) => {
+		const normalized = normalizeAllowlistedToolEntry(value);
+		if (normalized) entries.set(`${normalized.tool}\0${normalized.glob ?? ""}`, normalized);
+	};
 	for (const tool of config.allowlistedTools) {
-		const normalized = normalizeAllowlistedToolEntry(tool);
-		if (normalized) tools.add(normalized);
+		addEntry(tool);
 	}
 	for (const tool of getClaudeProjectAllowlistedTools(cwd)) {
-		tools.add(tool);
+		addEntry(tool);
 	}
 	for (const tool of getClaudeGlobalAllowlistedTools()) {
-		tools.add(tool);
+		addEntry(tool);
 	}
-	return [...tools];
+	return [...entries.values()];
 }
 
 function resolveToolPath(cwd: string, inputPath: unknown): string | undefined {
@@ -720,7 +742,8 @@ function statusText(state: AutoModeState, config: AutoModeConfig, cwd: string): 
 	const configuredAllowlist = config.allowlistedTools.join(", ");
 	const claudeProjectAllowlist = getClaudeProjectAllowlistedTools(cwd);
 	const claudeGlobalAllowlist = getClaudeGlobalAllowlistedTools();
-	const effectiveAllowlist = getEffectiveAllowlistedTools(cwd, config);
+	const formatEntry = (entry: AllowlistEntry): string => (entry.glob ? `${entry.tool}(${entry.glob})` : entry.tool);
+	const effectiveAllowlist = getEffectiveAllowlistedTools(cwd, config).map(formatEntry);
 	return [
 		`enabled: ${state.enabled ? "yes" : "no"}`,
 		`classifier: ${state.classifierModel ?? config.classifierModel ?? "current session model"}`,
@@ -1043,9 +1066,9 @@ export default function autoModeExtension(pi: ExtensionAPI) {
 
 		state.actionCount += 1;
 		const actionSummary = formatAction(event.toolName, event.input as Record<string, unknown>);
-		const allowlist = new Set(getEffectiveAllowlistedTools(ctx.cwd, config));
+		const allowlist = getEffectiveAllowlistedTools(ctx.cwd, config);
 
-		if (allowlist.has(event.toolName)) {
+		if (isAllowlisted(allowlist, event.toolName, event.input as Record<string, unknown>)) {
 			state.consecutiveDenials = 0;
 			state.lastDecision = "allow";
 			state.lastReason = `Allowlisted tool: ${event.toolName}`;
